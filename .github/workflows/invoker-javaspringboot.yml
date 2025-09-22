@@ -1,7 +1,24 @@
 name: Java Spring Boot Invoker
 on:
   workflow_dispatch:
-
+    inputs:
+        tecnologia:
+          description: 'tecnologia'
+          required: true
+          type: choice
+          options:
+            - Java
+            - Python
+            - .NET
+        Server_a_desplegar:
+          description: 'Servidor donde se desplegaran los cambios'
+          required: true
+          type: choice
+          options:
+            - IIS
+            - Tomcat
+            - PM2
+        
 jobs:
   run-workflow:
     uses: ./.github/workflows/workflow-javaspringboot.yml
