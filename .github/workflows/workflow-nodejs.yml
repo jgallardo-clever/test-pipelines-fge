@@ -1,0 +1,31 @@
+name: Node.js Workflow
+on:
+  workflow_call:
+
+jobs:
+  
+  build:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build app
+        run: echo "Build"
+
+      - name: Test app
+        run: echo "Test"
+
+      - name: Code analysis
+        run: echo "Code analysis"
+
+      - name: Upload artifact
+        run: echo "Upload artifact"
+
+  deploy:
+    runs-on: self-hosted
+    needs: build
+    steps:
+      - name: Deploy to server
+        run: echo "Deploy to server"
+

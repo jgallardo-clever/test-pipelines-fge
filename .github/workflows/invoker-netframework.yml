@@ -1,0 +1,7 @@
+name: .NET Framework Invoker
+on:
+  workflow_dispatch:
+
+jobs:
+  run-workflow:
+    uses: ./.github/workflows/workflow-netframework.yml
