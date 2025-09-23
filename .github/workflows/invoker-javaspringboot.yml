@@ -2,14 +2,6 @@ name: Java Spring Boot Invoker
 on:
   workflow_dispatch:
     inputs:
-        tecnologia:
-          description: 'tecnologia'
-          required: true
-          type: choice
-          options:
-            - Java
-            - Python
-            - .NET
         Server_a_desplegar:
           description: 'Servidor donde se desplegaran los cambios'
           required: true
