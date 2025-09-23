@@ -44,4 +44,9 @@ jobs:
     needs: build_test
     steps:
       - name: Deploy to server
-        run: echo "Deploy to server"
+        uses: ./workflow-repository/.github/actions/netframework/deploy
+        with:
+          server_ip: ${{ secrets.server_ip }}
+          remote_user: ${{ secrets.remote_user }}
+          artifact_file_name: ${{ needs.build_test.outputs.artifact_name }}
+          project_path: ${{ secrets.project_path }}
