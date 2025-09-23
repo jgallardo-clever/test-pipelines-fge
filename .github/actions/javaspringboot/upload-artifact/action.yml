@@ -1,14 +1,11 @@
 name: Upload Artifact for Java Spring Boot
-description: Upload build artifacts
-inputs:
-  artifact_name:
-    description: 'Name of the artifact to upload'
-    required: true
+description: Upload build artifacts for Java Spring Boot applications
   
 runs:
   using: "composite"
   steps:
     - name: Buscar el archivo de proyecto pom.xml
+      id: find_project_directory
       shell: powershell
       working-directory: ./app
       run: |
@@ -39,6 +36,6 @@ runs:
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ inputs.artifact_name }}
-        path: ${{ steps.find_project_directory.outputs.project_directory }}\target\${{ steps.upload_artifact.outputs.artifact_file_name }}
+        name: ${{ steps.find_project_directory.outputs.artifact_file_name }}
+        path: ${{ steps.find_project_directory.outputs.project_directory }}\target\${{ steps.find_project_directory.outputs.artifact_file_name }}
         retention-days: 14 # Acá ver si debemos ajustar esto
