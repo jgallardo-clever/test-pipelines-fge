@@ -1,0 +1,54 @@
+name: Upload Artifact for Node.js
+description: Upload build artifacts for Node.js projects
+
+runs:
+  using: "composite"
+  steps:
+    - name: Buscar el archivo package.json
+      id: find_project_directory
+      shell: powershell
+      working-directory: ./app
+      run: |
+        echo "Buscando el archivo package.json..."
+        $packagePath = Get-ChildItem -Recurse -Filter package.json | Select-Object -First 1 | ForEach-Object { $_.FullName }
+        if (-not $packagePath) {
+          echo "No se encontró el archivo package.json"
+          exit 1
+        }
+
+        echo "Cargar archivo package.json encontrado en: $packagePath"
+        $projectDir = Split-Path $packagePath -Parent
+
+        echo "Obtener name y version para nombrar el artefacto"
+        $packageJson = Get-Content $packagePath | ConvertFrom-Json
+        $name = $packageJson.name
+        $version = $packageJson.version
+
+        $artifactFileName = "$name-$version.zip"
+        echo "Artifact file name: $artifactFileName"
+        echo "artifact_file_name=$artifactFileName" >> $env:GITHUB_OUTPUT
+        echo "project_directory=$projectDir" >> $env:GITHUB_OUTPUT
+
+    - name: Optimizar artefacto
+      working-directory: ${{ steps.find_project_directory.outputs.project_directory }}
+      shell: powershell
+      run: |
+        echo "Eliminando node_modules para optimizar el artefacto..."
+        Remove-Item -Recurse -Force "${{ steps.find_project_directory.outputs.project_directory }}\node_modules"
+
+    - name: Create ZIP of the project
+      shell: powershell
+      run: |
+        $zipPath = "${{ steps.find_project_directory.outputs.project_directory }}\${{ steps.find_project_directory.outputs.artifact_file_name }}"
+        if (Test-Path $zipPath) {
+          Remove-Item $zipPath
+        }
+        Compress-Archive -Path "${{ steps.find_project_directory.outputs.project_directory }}\*" -DestinationPath $zipPath
+        echo "ZIP file created at: $zipPath"
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.find_project_directory.outputs.artifact_file_name }}
+        path: ${{ steps.find_project_directory.outputs.project_directory }}\${{ steps.find_project_directory.outputs.artifact_file_name }}
+        retention-days: 14 # Acá ver si debemos ajustar esto
