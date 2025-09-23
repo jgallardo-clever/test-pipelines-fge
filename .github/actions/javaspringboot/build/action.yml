@@ -1,12 +1,5 @@
 name: Action para compilar aplicaciones Java Spring Boot 2.5.12
 description: 'Esta acción compila aplicaciones Java Spring Boot 2.5.12'
-inputs:
-  server_ip: 
-    description: 'Dirección IP del servidor donde se desplegará la aplicación'
-    required: true
-  remote_user:
-    description: 'Usuario para conectarse al servidor remoto'
-    required: true
 outputs:
   app_name:
     description: 'Nombre de la aplicación compilada'
@@ -64,35 +57,5 @@ runs:
         echo "app_name=$projectName" >> $env:GITHUB_OUTPUT
         echo "version=$version" >> $env:GITHUB_OUTPUT
         echo "extension=$extension" >> $env:GITHUB_OUTPUT
-      shell: powershell
-      working-directory: ${{ steps.find_project_directory.outputs.project_directory }}
-
-    - name: Subir artefactos al servidor remoto
-      run: |
-        echo "Subiendo artefactos al servidor remoto..."
-        
-        # Crear directorio remoto (comando correcto para Windows)
-        ssh ${{ inputs.remote_user }}@${{ inputs.server_ip }} "if not exist C:\artifacts\java-springboot-2.5.12 mkdir C:\artifacts\java-springboot-2.5.12"
-        
-        # Obtener información del artefacto desde outputs del step anterior
-        $appName = "${{ steps.get_artifact.outputs.app_name }}"
-        $version = "${{ steps.get_artifact.outputs.version }}"
-        $extension = "${{ steps.get_artifact.outputs.extension }}"
-        
-        echo "Renombrando artefacto..."
-        # Buscar el archivo generado y renombrarlo
-        $generatedFile = Get-ChildItem ./target/*.$extension | Select-Object -First 1
-        if ($generatedFile) {
-          $newName = "$appName.$extension"
-          Rename-Item $generatedFile.FullName $newName
-          echo "Archivo renombrado a: $newName"
-          
-          echo "Subiendo artefacto al servidor remoto..."
-          scp "./target/$newName" "${{ inputs.remote_user }}@${{ inputs.server_ip }}:C:/artifacts/java-springboot-2.5.12/"
-          echo "Artefacto subido exitosamente."
-        } else {
-          echo "No se encontró ningún archivo .$extension en ./target/"
-          exit 1
-        }
       shell: powershell
       working-directory: ${{ steps.find_project_directory.outputs.project_directory }}
