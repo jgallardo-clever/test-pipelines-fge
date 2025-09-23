@@ -1,0 +1,98 @@
+name: Action para compilar aplicaciones Java Spring Boot 2.5.12
+description: 'Esta acción compila aplicaciones Java Spring Boot 2.5.12'
+inputs:
+  server_ip: 
+    description: 'Dirección IP del servidor donde se desplegará la aplicación'
+    required: true
+  remote_user:
+    description: 'Usuario para conectarse al servidor remoto'
+    required: true
+outputs:
+  app_name:
+    description: 'Nombre de la aplicación compilada'
+    value: ${{ steps.get_artifact.outputs.app_name }}
+  version:
+    description: 'Versión de la aplicación compilada'
+    value: ${{ steps.get_artifact.outputs.version }}
+  extension:
+    description: 'Extensión del artefacto compilado'
+    value: ${{ steps.get_artifact.outputs.extension }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Buscar el archivo de proyecto pom.xml
+      id: find_project_directory
+      shell: powershell
+      working-directory: ./app
+      run: |
+        echo "Buscando el archivo pom.xml..."
+        $pomPath = Get-ChildItem -Recurse -Filter pom.xml | Select-Object -First 1 | ForEach-Object { $_.FullName }
+        if (-not $pomPath) {
+          echo "No se encontró el archivo pom.xml"
+          exit 1
+        }
+        echo "Archivo pom.xml encontrado en: $pomPath"
+        $projectDir = Split-Path $pomPath -Parent
+        echo "Ruta al directorio de proyecto: $projectDir"
+        echo "project_directory=$projectDir" >> $env:GITHUB_OUTPUT
+
+    - name: Compilar aplicación Java Spring Boot 2.5.12
+      run: |
+        echo "Compilando aplicación Java Spring Boot 2.5.12..."
+        mvn clean package -Dmaven.test.skip=true
+        echo "Compilación completada."
+      shell: cmd
+      working-directory: ${{ steps.find_project_directory.outputs.project_directory }}
+      
+    - name: Obtener nombre, versión y extensión del artefacto desde pom.xml
+      id: get_artifact
+      run: |
+        # Cargar el contenido del archivo pom.xml
+        [xml]$pom = Get-Content pom.xml
+        
+        # Obtener el nombre y la versión del proyecto
+        $projectName = $pom.project.artifactId
+        $version = $pom.project.version
+        $extension = $pom.project.packaging
+        
+        # Mostrar información
+        echo "- Nombre del proyecto: $projectName"
+        echo "- Versión del proyecto: $version"
+        echo "- Extensión del artefacto: $extension"
+
+        # Retornar el nombre y la versión
+        echo "app_name=$projectName" >> $env:GITHUB_OUTPUT
+        echo "version=$version" >> $env:GITHUB_OUTPUT
+        echo "extension=$extension" >> $env:GITHUB_OUTPUT
+      shell: powershell
+      working-directory: ${{ steps.find_project_directory.outputs.project_directory }}
+
+    - name: Subir artefactos al servidor remoto
+      run: |
+        echo "Subiendo artefactos al servidor remoto..."
+        
+        # Crear directorio remoto (comando correcto para Windows)
+        ssh ${{ inputs.remote_user }}@${{ inputs.server_ip }} "if not exist C:\artifacts\java-springboot-2.5.12 mkdir C:\artifacts\java-springboot-2.5.12"
+        
+        # Obtener información del artefacto desde outputs del step anterior
+        $appName = "${{ steps.get_artifact.outputs.app_name }}"
+        $version = "${{ steps.get_artifact.outputs.version }}"
+        $extension = "${{ steps.get_artifact.outputs.extension }}"
+        
+        echo "Renombrando artefacto..."
+        # Buscar el archivo generado y renombrarlo
+        $generatedFile = Get-ChildItem ./target/*.$extension | Select-Object -First 1
+        if ($generatedFile) {
+          $newName = "$appName.$extension"
+          Rename-Item $generatedFile.FullName $newName
+          echo "Archivo renombrado a: $newName"
+          
+          echo "Subiendo artefacto al servidor remoto..."
+          scp "./target/$newName" "${{ inputs.remote_user }}@${{ inputs.server_ip }}:C:/artifacts/java-springboot-2.5.12/"
+          echo "Artefacto subido exitosamente."
+        } else {
+          echo "No se encontró ningún archivo .$extension en ./target/"
+          exit 1
+        }
+      shell: powershell
+      working-directory: ${{ steps.find_project_directory.outputs.project_directory }}

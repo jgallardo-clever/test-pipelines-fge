@@ -1,0 +1,122 @@
+name: Action para desplegar aplicaciones Java Spring Boot 2.5.12
+description: 'Esta acción despliega aplicaciones Java Spring Boot 2.5.12'
+inputs:
+  ########################################################################
+  # Conexión al servidor
+  ########################################################################
+  server_ip:
+    description: 'Dirección IP del servidor donde se desplegará la aplicación'
+    required: true
+  remote_user:
+    description: 'Usuario para conectarse al servidor remoto'
+    required: true
+  ########################################################################
+  # Tipo de despliegue
+  ########################################################################
+  tipo_despliegue:
+    description: 'Tipo de despliegue a realizar'
+    required: true
+  ########################################################################
+  # Configuración del sitio/webapp en IIS
+  ########################################################################
+  tomcat_path:
+    description: 'Ruta de instalación de Tomcat en el servidor remoto'
+    required: true
+  site_name:
+    description: 'Nombre del sitio en IIS'
+    required: true
+  webapp_name:
+    description: 'Nombre de la web application en IIS (solo para tipo_deploy = webapp)'
+    required: false
+    default: ''
+  ip_address:
+    description: 'Dirección IP del sitio (dejar vacío para todas las IPs)'
+    required: false
+    default: '*'
+  host_header:
+    description: 'Header del host para el sitio'
+    required: false
+    default: 'localhost'
+  port_site:
+    description: 'Puerto del sitio'
+    required: false
+    default: '80'
+  app_pool_name:
+    description: 'Nombre del Application Pool'
+    required: true
+  ########################################################################
+  # Configuración de la aplicación
+  ########################################################################
+  app_name:
+    description: 'Nombre de la aplicación a desplegar'
+    required: true
+  extension:
+    description: 'Extensión del archivo desplegable (war, jar, etc.)'
+    required: true
+    default: 'jar'
+  tomcat_port:
+    description: 'Puerto en el que Tomcat servirá la aplicación'
+    required: false
+    default: '8080'
+runs:
+  using: 'composite'
+  steps:
+    - name: Desplegar en Tomcat
+      run: |
+        echo "Desplegando aplicación Java Spring Boot 2.5.12 en Tomcat..."
+        ssh ${{ inputs.remote_user }}@${{ inputs.server_ip }} move \"C:\artifacts\java-springboot-2.5.12\${{ inputs.app_name }}.${{ inputs.extension }}\" \"${{ inputs.tomcat_path }}\"
+        echo "Despliegue en Tomcat completado..."
+      shell: cmd
+    - name: Crear App Pool de IIS
+      uses: ./workflow-repository/.github/actions/utils/application-pool/create-app-pool
+      with:
+        app_pool_name: '${{ inputs.app_name }}-app-pool'
+        managed_runtime_version: ''
+        managed_pipeline_mode: 'Integrated'
+        servidor_remoto: '${{ inputs.server_ip }}'
+        usuario: '${{ inputs.remote_user }}'
+    - name: Crear Sitio en IIS
+      if: ${{ inputs.tipo_despliegue == 'site' }}
+      uses: ./workflow-repository/.github/actions/utils/iis-site/create-iis-site
+      with:
+        # Conexión al servidor
+        servidor_remoto: '${{ inputs.server_ip }}'
+        usuario: '${{ inputs.remote_user }}'
+        # Configuración del sitio
+        site_name: '${{ inputs.site_name }}'
+        app_pool_name: '${{ inputs.app_name }}-app-pool'
+        physical_path: '${{ inputs.tomcat_path }}\${{ inputs.app_name }}'
+        host_header: ${{ inputs.host_header }}
+        port: ${{ inputs.port_site }}
+        ip_address: ${{ inputs.ip_address }}
+        
+    - name: Crear Web Application en IIS
+      if: ${{ inputs.tipo_despliegue == 'webapp' }}
+      uses: ./workflow-repository/.github/actions/utils/iis-site/create-web-app
+      with:
+        # Conexión al servidor
+        servidor_remoto: '${{ inputs.server_ip }}'
+        usuario: '${{ inputs.remote_user }}'
+        # Configuración del sitio
+        site_name: '${{ inputs.site_name }}'
+        app_name: '${{ inputs.webapp_name }}'
+        app_pool_name: '${{ inputs.app_name }}-app-pool'
+        physical_path: '${{ inputs.tomcat_path }}\${{ inputs.app_name }}'
+
+    - name: Configurar Reverse Proxy en IIS para Sitio
+      if: ${{ inputs.tipo_despliegue == 'site' }}
+      uses: ./workflow-repository/.github/actions/utils/iis-site/setup-reverse-proxy
+      with:
+        site_name: '${{ inputs.site_name }}'
+        target_url: 'http://localhost:${{ inputs.tomcat_port }}/${{ inputs.app_name }}'
+        servidor_remoto: '${{ inputs.server_ip }}'
+        usuario: '${{ inputs.remote_user }}'
+      
+    - name: Configurar Reverse Proxy en IIS para Web Application
+      if: ${{ inputs.tipo_despliegue == 'webapp' }}
+      uses: ./workflow-repository/.github/actions/utils/iis-site/setup-reverse-proxy
+      with:
+        site_name: '${{ inputs.site_name }}/${{ inputs.webapp_name }}'
+        target_url: 'http://localhost:${{ inputs.tomcat_port }}/${{ inputs.app_name }}'
+        servidor_remoto: '${{ inputs.server_ip }}'
+        usuario: '${{ inputs.remote_user }}'

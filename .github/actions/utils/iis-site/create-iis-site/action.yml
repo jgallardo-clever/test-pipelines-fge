@@ -1,0 +1,46 @@
+name: Crear Sitio IIS
+description: Crea un sitio IIS con la configuración especificada.
+inputs:
+  site_name:
+    description: "Nombre del sitio IIS"
+    required: true
+  app_pool_name:
+    description: "Nombre del Application Pool asociado al sitio"
+    required: true
+  physical_path:
+    description: "Ruta física del sitio (ejemplo: C:\\inetpub\\wwwroot\\mysite)"
+    required: true
+  host_header:
+    description: "Encabezado o dominio del sitio (ejemplo: www.misitio.com)"
+    required: true
+  port:
+    description: "Puerto en el que se escuchará el sitio (ejemplo: 80)"
+    required: true
+  ip_address:
+    description: "Dirección IP del sitio (dejar vacío para todas las IPs)"
+    required: false
+    default: '*'
+  servidor_remoto:
+    description: "Nombre o dirección IP del servidor remoto donde se creará el sitio"
+    required: true
+  usuario:
+    description: "Usuario para conectarse al servidor remoto"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Ver parámetros de entrada
+      run: |
+        echo "Creando Sitio IIS con los siguientes parámetros:"
+        echo "Nombre del sitio: ${{ inputs.site_name }}"
+        echo "Application Pool: ${{ inputs.app_pool_name }}"
+        echo "Ruta física: ${{ inputs.physical_path }}"
+        echo "Encabezado del sitio: ${{ inputs.host_header }}"
+        echo "Puerto: ${{ inputs.port }}"
+      shell: powershell
+    - name: Crear Sitio IIS
+      run: |
+        echo "Ejecutando el script para crear el sitio IIS..."
+        .\create-iis-site.ps1 -siteName '${{ inputs.site_name }}' -appPoolName '${{ inputs.app_pool_name }}' -sitePath '${{ inputs.physical_path }}' -hostHeader '${{ inputs.host_header }}' -port '${{ inputs.port }}' -ipAddress '${{ inputs.ip_address }}' -ipServer '${{ inputs.servidor_remoto }}' -sshUser '${{ inputs.usuario }}'
+      shell: powershell
+      working-directory: ./workflow-repository/.github/actions/utils/iis-site/create-iis-site

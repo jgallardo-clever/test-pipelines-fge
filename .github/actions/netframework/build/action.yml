@@ -1,0 +1,136 @@
+name: Action para compilar aplicaciones .NET Framework
+description: 'Esta acción compila aplicaciones .NET Framework'
+inputs:
+  server_ip: 
+    description: 'Dirección IP del servidor donde se desplegará la aplicación'
+    required: true
+  remote_user:
+    description: 'Usuario para conectarse al servidor remoto'
+    required: true
+outputs:
+  app_name:
+    description: 'Nombre de la aplicación compilada'
+    value: ${{ steps.get_artifact.outputs.app_name }}
+  version:
+    description: 'Versión de la aplicación compilada'
+    value: ${{ steps.get_artifact.outputs.version }}
+  extension:
+    description: 'Extensión del artefacto compilado'
+    value: ${{ steps.get_artifact.outputs.extension }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Buscar archivos de proyecto .NET y retornar ruta del directorio
+      id: find_project_directory
+      run: |
+        # Buscar archivos de proyecto .NET
+        $projectFiles = Get-ChildItem -Path . -Recurse -Include *.csproj, *.vbproj, *.fsproj | Where-Object { $_.FullName -notmatch 'Tests' }
+        if ($projectFiles.Count -eq 0) {
+          echo "No se encontraron archivos de proyecto .NET."
+          exit 1
+        }
+        
+        # Tomar el primer archivo de proyecto encontrado
+        $projectFile = $projectFiles[0].FullName
+
+        # Obtener el directorio del archivo de proyecto
+        $projectDirectory = Split-Path $projectFile -Parent
+
+        # Exportar la ruta completa del directorio del proyecto y el archivo de proyecto
+        echo "project_directory=$projectDirectory" >> $env:GITHUB_OUTPUT
+        echo "project_file=$projectFile" >> $env:GITHUB_OUTPUT
+
+      shell: powershell
+      working-directory: ./app
+
+    - name: Restaurar dependencias con Nuget
+      shell: powershell
+      working-directory: ./app
+      run: |
+        echo "Buscamos el archivo .sln..."
+        $slnFile = Get-ChildItem -Path . -Recurse -Include *.sln | Select-Object -First 1
+        if ($slnFile) {
+          echo "Archivo .sln encontrado: $slnFile"
+        } else {
+          echo "No se encontró ningún archivo .sln."
+        }
+        echo "Restaurando dependencias con nuget..."
+        nuget restore $slnFile -PackagesDirectory ${{ steps.find_project_directory.outputs.project_directory }}\packages
+
+    - name: Compilar aplicación .NET Framework
+      run: |
+        # Compilar la aplicación con dotnet
+        try {
+          msbuild
+        } catch {
+          echo "Error al compilar la aplicación."
+          exit 1
+        }
+        echo "Compilación completada."
+      shell: powershell
+      working-directory: ${{ steps.find_project_directory.outputs.project_directory }}
+
+    - name: Obtener nombre del proyecto .NET
+      id: get_artifact
+      run: |
+        # Cargar el contenido del archivo de proyecto
+        try {
+          [xml]$project = Get-Content ${{ steps.find_project_directory.outputs.project_file }}
+        } catch {
+          echo "Error al cargar el archivo de proyecto."
+          exit 1
+        }
+
+        # Obtener el nombre y la versión del proyecto (convertir a string explícitamente)
+        $projectNameRaw = $project.Project.PropertyGroup.AssemblyName
+        $dotnetVersionRaw = $project.Project.PropertyGroup.TargetFrameworkVersion
+        
+        # Convertir a string y limpiar espacios
+        $projectName = "$projectNameRaw".Trim()
+        $dotnetVersion = "$dotnetVersionRaw".Trim()
+
+        # Mostrar información preliminar
+        echo "- Nombre del proyecto (raw): '$projectNameRaw'"
+        echo "- Versión de .NET (raw): '$dotnetVersionRaw'"
+        echo "- Nombre del proyecto (limpio): '$projectName'"
+        echo "- Versión de .NET (limpio): '$dotnetVersion'"
+
+        # Retornar el nombre y la versión
+        echo "app_name=$projectName" >> $env:GITHUB_OUTPUT
+        echo "dotnet_version=$dotnetVersion" >> $env:GITHUB_OUTPUT
+
+      shell: powershell
+      working-directory: ${{ steps.find_project_directory.outputs.project_directory }}
+      
+    - name: Subir artefactos al servidor remoto
+      run: |
+        # Crear directorio remoto (comando correcto para Windows)
+        try {
+          ssh ${{ inputs.remote_user }}@${{ inputs.server_ip }} "if not exist C:\artifacts\net-framework mkdir C:\artifacts\net-framework"
+        } catch {
+          echo "Error al crear el directorio de artefactos en el servidor remoto."
+          exit 1
+        }
+
+        # Obtener información del artefacto desde outputs del step anterior
+        $appName = "${{ steps.get_artifact.outputs.app_name }}"
+        $dotnetVersion = "${{ steps.get_artifact.outputs.dotnet_version }}"
+        
+        # Comprimir el directorio del proyecto
+        try {
+          $zipFile = "$appName.zip"
+          Compress-Archive -Path "${{ steps.find_project_directory.outputs.project_directory }}\*" -DestinationPath $zipFile
+        } catch {
+          echo "Error al comprimir el directorio del proyecto."
+          exit 1
+        }
+
+        # Subir el archivo comprimido al servidor remoto
+        try {
+          scp $zipFile ${{ inputs.remote_user }}@${{ inputs.server_ip }}:C:\artifacts\net-framework\
+        } catch {
+          echo "Error al subir el archivo comprimido al servidor remoto."
+          exit 1
+        }
+      shell: powershell
+      working-directory: ${{ steps.find_project_directory.outputs.project_directory }}

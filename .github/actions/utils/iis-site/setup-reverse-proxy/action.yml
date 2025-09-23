@@ -1,0 +1,30 @@
+name: Configurar Reverse Proxy en IIS
+description: Configura un sitio de Reverse Proxy en IIS para redirigir tráfico a un servidor backend.
+inputs:
+  site_name:
+    description: "Nombre del sitio IIS"
+    required: true
+  target_url:
+    description: "URL del servidor backend (ejemplo: http://localhost:5000)"
+    required: true
+  servidor_remoto:
+    description: "Nombre o dirección IP del servidor remoto donde se configurará el Reverse Proxy"
+    required: true
+  usuario:
+    description: "Usuario para conectarse al servidor remoto"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Ver parámetros de entrada
+      run: |
+        echo "Configurando Reverse Proxy en IIS con los siguientes parámetros:"
+        echo "Nombre del sitio: ${{ inputs.site_name }}"
+        echo "URL del servidor backend: ${{ inputs.target_url }}"
+      shell: powershell
+    - name: Configurar Reverse Proxy
+      run: |
+        echo "Ejecutando el script para configurar el Reverse Proxy en IIS..."
+        .\setup-reverse-proxy.ps1 -siteName '${{ inputs.site_name }}' -targetUrl '${{ inputs.target_url }}' -ipServer '${{ inputs.servidor_remoto }}' -sshUser '${{ inputs.usuario }}'
+      shell: powershell
+      working-directory: ./workflow-repository/.github/actions/utils/iis-site/setup-reverse-proxy

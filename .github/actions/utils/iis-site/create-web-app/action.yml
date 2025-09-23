@@ -1,0 +1,38 @@
+name: Crear Aplicación Web en IIS
+description: Crea una aplicación web dentro de un sitio IIS existente.
+inputs:
+  site_name:
+    description: "Nombre del sitio IIS donde se creará la aplicación"
+    required: true
+  app_name:
+    description: "Nombre de la aplicación web a crear (ejemplo: myapp)"
+    required: true
+  physical_path:
+    description: "Ruta física de la aplicación (ejemplo: C:\\inetpub\\wwwroot\\mysite\\myapp)"
+    required: true
+  app_pool_name:
+    description: "Nombre del Application Pool que usará la aplicación"
+    required: true
+  servidor_remoto:
+    description: "Dirección IP del servidor remoto donde se creará la aplicación"
+    required: true
+  usuario:
+    description: "Usuario para conectarse al servidor remoto"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Ver parámetros de entrada
+      run: |
+        echo "Creando Aplicación Web en IIS con los siguientes parámetros:"
+        echo "Nombre del sitio: ${{ inputs.site_name }}"
+        echo "Nombre de la aplicación: ${{ inputs.app_name }}"
+        echo "Ruta física: ${{ inputs.physical_path }}"
+        echo "Application Pool: ${{ inputs.application_pool }}"
+      shell: powershell
+    - name: Crear Aplicación Web en IIS
+      run: |
+        echo "Ejecutando el script para crear la aplicación web en IIS..."
+        .\create-web-app.ps1 -siteName '${{ inputs.site_name }}' -appName '${{ inputs.app_name }}' -physicalPath '${{ inputs.physical_path }}' -applicationPool '${{ inputs.app_pool_name }}' -ipServer '${{ inputs.servidor_remoto }}' -sshUser '${{ inputs.usuario }}'
+      shell: powershell
+      working-directory: ./workflow-repository/.github/actions/utils/iis-site/create-web-app

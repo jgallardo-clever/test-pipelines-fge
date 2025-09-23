@@ -1,0 +1,61 @@
+name: Action para ejecutar pruebas de .NET Framework
+description: 'Esta acción ejecuta pruebas de aplicaciones .NET Framework'
+runs:
+  using: 'composite'
+  steps:
+    - name: Restaurar dependencias con Nuget
+      shell: powershell
+      working-directory: ./app
+      run: |
+        echo "Buscamos el archivo .sln..."
+        $slnFile = Get-ChildItem -Path . -Recurse -Include *.sln | Select-Object -First 1
+        if ($slnFile) {
+          echo "Archivo .sln encontrado: $slnFile"
+        } else {
+          echo "No se encontró ningún archivo .sln."
+        }
+        echo "Restaurando dependencias con nuget en los directorios que contienen el archivo .csproj..."
+        $csprojFiles = Get-ChildItem -Path . -Recurse -Include *.csproj
+        foreach ($csprojFile in $csprojFiles) {
+          $csprojDirectory = Split-Path $csprojFile.FullName -Parent
+          nuget restore $csprojFile -PackagesDirectory "$csprojDirectory\packages"
+        }
+
+      ###################################################################################################
+      # En este caso estamos buscando los archivos de proyecto de tests .NET Framework, el cual es
+      # utilizado con MSTest, por lo que se espera que los archivos de prueba y proyecto tengan un
+      # sufijo .Tests
+      ###################################################################################################
+    - name: Buscar los archivos de tests del proyecto .NET y retornar ruta del directorio
+      id: find_test_project_directory
+      shell: powershell
+      working-directory: ./app
+      run: |
+        # Buscar archivos de proyecto de tests .NET
+        $testProjectFiles = Get-ChildItem -Path . -Recurse -Include *.csproj, *.vbproj, *.fsproj | Where-Object { $_.FullName -match 'Tests' }
+        if ($testProjectFiles.Count -eq 0) {
+          echo "No se encontraron archivos de proyecto de tests .NET."
+          echo "has_tests=false" >> $env:GITHUB_OUTPUT
+          exit 0
+        }
+        
+        # Tomar el primer archivo de proyecto de tests encontrado
+        $testProjectFile = $testProjectFiles[0].FullName
+
+        # Obtener el directorio del archivo de proyecto de tests
+        $testProjectDirectory = Split-Path $testProjectFile -Parent
+
+        # Exportar la ruta completa del directorio del proyecto de tests y el archivo de proyecto de tests
+        echo "has_tests=true" >> $env:GITHUB_OUTPUT
+        echo "test_project_directory=$testProjectDirectory" >> $env:GITHUB_OUTPUT
+        echo "test_project_file=$testProjectFile" >> $env:GITHUB_OUTPUT
+
+    - name: Ejecutar pruebas .NET
+      if: ${{ steps.find_test_project_directory.outputs.has_tests == 'true' }}
+      shell: powershell
+      working-directory: ${{ steps.find_test_project_directory.outputs.test_project_directory }}
+      run: |
+        echo "Buildear proyecto de tests..."
+        msbuild /p:Configuration=Release
+        echo "Ejecutar pruebas..."
+        vstest.console.exe .\bin\Release\*.Tests.dll

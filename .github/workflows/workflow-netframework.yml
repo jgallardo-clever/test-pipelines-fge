@@ -4,11 +4,19 @@ on:
 
 jobs:
   
-  build:
+  build_test:
     runs-on: self-hosted
     steps:
-      - name: Checkout code
+      - name: Checkout app repository
         uses: actions/checkout@v4
+        with:
+          path: app
+
+      - name: Checkout workflow repository
+        uses: actions/checkout@v4
+        with:
+          repository: jgallardo-clever/test-pipelines-fge
+          path: workflow-repository
 
       - name: Build app
         run: echo "Build"
@@ -16,16 +24,25 @@ jobs:
       - name: Test app
         run: echo "Test"
 
-      - name: Code analysis
-        run: echo "Code analysis"
-
       - name: Upload artifact
         run: echo "Upload artifact"
 
+  code_analysis:
+    runs-on: self-hosted
+    needs: build_test
+    steps:
+      - name: Download artifact
+        run: echo "Download artifact"
+
+      - name: Code analysis
+        run: echo "Code analysis"
+
   deploy:
     runs-on: self-hosted
-    needs: build
+    needs: [build_test, code_analysis]
     steps:
+      - name: Download artifact
+        run: echo "Download artifact"
+        
       - name: Deploy to server
         run: echo "Deploy to server"
-

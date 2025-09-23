@@ -1,0 +1,32 @@
+name: Configurar documento por defecto en IIS
+description: Esta acción configura un documento por defecto en un sitio de IIS específico.
+inputs:
+  ipServer:
+    description: Dirección IP del servidor IIS.
+    required: true
+  sshUser:
+    description: Usuario SSH para conectarse al servidor.
+    required: true
+  siteName:
+    description: Nombre del sitio de IIS.
+    required: true
+  defaultDocument:
+    description: Nombre del documento por defecto a configurar.
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Ver parámetros de entrada
+      run: |
+        echo "Configurando documento por defecto en IIS con los siguientes parámetros:"
+        echo "IP del servidor: ${{ inputs.ipServer }}"
+        echo "Usuario SSH: ${{ inputs.sshUser }}"
+        echo "Nombre del sitio: ${{ inputs.siteName }}"
+        echo "Documento por defecto: ${{ inputs.defaultDocument }}"
+      shell: powershell
+    - name: Ejecutar script de configuración
+      run: |
+        echo "Ejecutando el script para configurar el documento por defecto en IIS..."
+        ssh ${{ inputs.sshUser }}@${{ inputs.ipServer }} powershell -Command "try { Import-Module WebAdministration; Add-WebConfigurationProperty -Filter 'system.webServer/defaultDocument/files' -PSPath 'IIS:\Sites\${{ inputs.siteName }}' -AtIndex 0 -Name 'Collection' -Value '${{ inputs.defaultDocument }}' } catch { echo 'Error al configurar el documento por defecto en IIS' }"
+      shell: powershell
+      working-directory: ./workflow-repository/.github/actions/utils/iis-site/add-default-document

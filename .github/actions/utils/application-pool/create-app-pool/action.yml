@@ -1,0 +1,36 @@
+name: Crear App Pool de IIS
+description: 'Esta acción crea un Application Pool en IIS'
+inputs:
+  app_pool_name:
+    description: 'Nombre del Application Pool a crear'
+    required: true
+  managed_runtime_version:
+    description: 'Versión de .NET Framework para el Application Pool'
+    required: true
+    default: 'v4.0'
+  managed_pipeline_mode:
+    description: 'Modo de canalización administrada para el Application Pool'
+    required: true
+    default: 'Integrated'
+  servidor_remoto:
+    description: 'Nombre o dirección IP del servidor remoto donde se creará el Application Pool'
+    required: true
+  usuario:
+    description: 'Usuario para conectarse al servidor remoto'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - name: Ver parámetros de entrada
+      run: |
+        echo "Creando App Pool de IIS con los siguientes parámetros:"
+        echo "Nombre del App Pool: ${{ inputs.app_pool_name }}"
+        echo "Versión de .NET: ${{ inputs.managed_runtime_version }}"
+        echo "Modo de canalización: ${{ inputs.managed_pipeline_mode }}"
+      shell: powershell
+    - name: Crear App Pool
+      run: |
+        echo "Ejecutando el script para crear el Application Pool en IIS..."
+        .\create-app-pool.ps1 -appPoolName '${{ inputs.app_pool_name }}' -managedRuntimeVersion '${{ inputs.managed_runtime_version }}' -managedPipelineMode '${{ inputs.managed_pipeline_mode }}' -ipServer '${{ inputs.servidor_remoto }}' -sshUser '${{ inputs.usuario }}'
+      shell: powershell
+      working-directory: ./workflow-repository/.github/actions/utils/application-pool/create-app-pool

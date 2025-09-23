@@ -1,0 +1,107 @@
+name: Action para desplegar aplicaciones Java Spring Boot 2.5.12
+description: 'Esta acción despliega aplicaciones Java Spring Boot 2.5.12'
+inputs:
+  ########################################################################
+  # Conexión al servidor
+  ########################################################################
+  server_ip:
+    description: 'Dirección IP del servidor donde se desplegará la aplicación'
+    required: true
+  remote_user:
+    description: 'Usuario para conectarse al servidor remoto'
+    required: true
+  ########################################################################
+  # Tipo de despliegue
+  ########################################################################
+  tipo_despliegue:
+    description: 'Tipo de despliegue a realizar'
+    required: true
+  ########################################################################
+  # Configuración del sitio/webapp en IIS
+  ########################################################################
+  project_path:
+    description: 'Ruta del proyecto en el servidor remoto'
+    required: true
+  site_name:
+    description: 'Nombre del sitio en IIS'
+    required: true
+  webapp_name:
+    description: 'Nombre de la web application en IIS (solo para tipo_deploy = webapp)'
+    required: false
+    default: ''
+  ip_address:
+    description: 'Dirección IP del sitio (dejar vacío para todas las IPs)'
+    required: false
+    default: '*'
+  host_header:
+    description: 'Header del host para el sitio'
+    required: false
+    default: 'localhost'
+  port_site:
+    description: 'Puerto del sitio'
+    required: false
+    default: '80'
+  app_pool_name:
+    description: 'Nombre del Application Pool'
+    required: true
+  ########################################################################
+  # Configuración de la aplicación
+  ########################################################################
+  app_name:
+    description: 'Nombre de la aplicación a desplegar'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - name: Desplegar en aplicación .NET Framework
+      run: |
+        echo "Crear directorio para la aplicación en el servidor remoto"
+        ssh ${{ inputs.remote_user }}@${{ inputs.server_ip }} mkdir \"${{ inputs.project_path }}\${{ inputs.app_name }}\"
+
+        echo "Desplegando aplicación .NET Framework en el servidor remoto"
+        ssh ${{ inputs.remote_user }}@${{ inputs.server_ip }} move \"C:\artifacts\net-framework\${{ inputs.app_name }}.zip\" \"${{ inputs.project_path }}\${{ inputs.app_name }}\"
+
+        echo "Descompresion de artefacto en el servidor remoto"
+        ssh ${{ inputs.remote_user }}@${{ inputs.server_ip }} powershell -Command "Expand-Archive -Path \"${{ inputs.project_path }}\${{ inputs.app_name }}\${{ inputs.app_name }}.zip\" -DestinationPath \"${{ inputs.project_path }}\${{ inputs.app_name }}\" -Force"
+
+        echo "Eliminar archivo ZIP del servidor remoto"
+        ssh ${{ inputs.remote_user }}@${{ inputs.server_ip }} del \"${{ inputs.project_path }}\${{ inputs.app_name }}\${{ inputs.app_name }}.zip\"
+      shell: cmd
+
+    - name: Crear App Pool de IIS
+      uses: ./workflow-repository/.github/actions/utils/application-pool/create-app-pool
+      with:
+        app_pool_name: '${{ inputs.app_name }}-app-pool'
+        managed_runtime_version: 'v4.0'
+        managed_pipeline_mode: 'Integrated'
+        servidor_remoto: '${{ inputs.server_ip }}'
+        usuario: '${{ inputs.remote_user }}'
+        
+    - name: Crear Sitio en IIS
+      if: ${{ inputs.tipo_despliegue == 'site' }}
+      uses: ./workflow-repository/.github/actions/utils/iis-site/create-iis-site
+      with:
+        # Conexión al servidor
+        servidor_remoto: '${{ inputs.server_ip }}'
+        usuario: '${{ inputs.remote_user }}'
+        # Configuración del sitio
+        site_name: '${{ inputs.site_name }}'
+        app_pool_name: '${{ inputs.app_name }}-app-pool'
+        physical_path: '${{ inputs.project_path }}\${{ inputs.app_name }}'
+        host_header: ${{ inputs.host_header }}
+        port: ${{ inputs.port_site }}
+        ip_address: '${{ inputs.ip_address }}'
+        
+    - name: Crear Web Application en IIS
+      if: ${{ inputs.tipo_despliegue == 'webapp' }}
+      uses: ./workflow-repository/.github/actions/utils/iis-site/create-web-app
+      with:
+        # Conexión al servidor
+        servidor_remoto: '${{ inputs.server_ip }}'
+        usuario: '${{ inputs.remote_user }}'
+        # Configuración del sitio
+        site_name: '${{ inputs.site_name }}'
+        app_name: '${{ inputs.webapp_name }}'
+        app_pool_name: '${{ inputs.app_name }}-app-pool'
+        physical_path: '${{ inputs.project_path }}\${{ inputs.app_name }}'
+        

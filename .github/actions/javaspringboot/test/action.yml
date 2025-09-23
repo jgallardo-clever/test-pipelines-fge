@@ -1,0 +1,64 @@
+name: Action para pruebas de Java Spring Boot 2.5.12
+description: Esta acción se encarga de ejecutar las pruebas para un proyecto de Java Spring Boot 2.5.12.
+runs:
+  using: 'composite'
+  steps:
+
+    - name: Buscar el archivo de proyecto pom.xml
+      id: find_project_directory
+      shell: powershell
+      working-directory: ./app
+      run: |
+        echo "Buscando el archivo pom.xml..."
+        $pomPath = Get-ChildItem -Recurse -Filter pom.xml | Select-Object -First 1 | ForEach-Object { $_.FullName }
+        if (-not $pomPath) {
+          echo "No se encontró el archivo pom.xml"
+          exit 1
+        }
+        echo "Archivo pom.xml encontrado en: $pomPath"
+        $projectDir = Split-Path $pomPath -Parent
+        echo "Ruta al directorio de proyecto: $projectDir"
+        echo "project_directory=$projectDir" >> $env:GITHUB_OUTPUT
+
+    - name: Verificar si existen pruebas en el proyecto
+      id: check_tests
+      shell: powershell
+      working-directory: ${{ steps.find_project_directory.outputs.project_directory }}
+      run: |
+        echo "Verificando si existen pruebas en el proyecto..."
+        $testDir = Join-Path -Path (Get-Location) -ChildPath "src\test\java"
+        if (Test-Path $testDir) {
+          $testFiles = Get-ChildItem -Path $testDir -Recurse -Filter "*Test*.java"
+          if ($testFiles.Count -gt 0) {
+            echo "Se encontraron pruebas en el proyecto."
+            echo "Verificando si existe la configuración de test en pom.xml"
+            $pomPath = Join-Path -Path (Get-Location) -ChildPath "pom.xml"
+            if (Test-Path $pomPath) {
+              $pomContent = Get-Content $pomPath
+              if ($pomContent -match "<scope>test</scope>") {
+                echo "La configuración de test se encuentra en pom.xml"
+                echo "has_tests=true" >> $env:GITHUB_OUTPUT
+              } else {
+                echo "No se encontró la configuración de test en pom.xml"
+                echo "has_tests=false" >> $env:GITHUB_OUTPUT
+              }
+            } else {
+              echo "No se encontró el archivo pom.xml"
+              echo "has_tests=false" >> $env:GITHUB_OUTPUT
+            }
+          } else {
+            echo "No se encontraron pruebas en el proyecto."
+            echo "has_tests=false" >> $env:GITHUB_OUTPUT
+          }
+        } else {
+          echo "No se encontró el directorio de pruebas src/test/java."
+          echo "has_tests=false" >> $env:GITHUB_OUTPUT
+        }
+
+    - name: Ejecutar pruebas de Java Spring Boot 2.5.12
+      if: ${{ steps.check_tests.outputs.has_tests == 'true' }}
+      shell: powershell
+      working-directory: ${{ steps.find_project_directory.outputs.project_directory }}
+      run: |
+        echo "Ejecutando tests..."
+        mvn test
