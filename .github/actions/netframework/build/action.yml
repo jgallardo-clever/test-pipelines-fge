@@ -1,12 +1,5 @@
 name: Action para compilar aplicaciones .NET Framework
 description: 'Esta acción compila aplicaciones .NET Framework'
-inputs:
-  server_ip: 
-    description: 'Dirección IP del servidor donde se desplegará la aplicación'
-    required: true
-  remote_user:
-    description: 'Usuario para conectarse al servidor remoto'
-    required: true
 outputs:
   app_name:
     description: 'Nombre de la aplicación compilada'
@@ -99,38 +92,5 @@ runs:
         echo "app_name=$projectName" >> $env:GITHUB_OUTPUT
         echo "dotnet_version=$dotnetVersion" >> $env:GITHUB_OUTPUT
 
-      shell: powershell
-      working-directory: ${{ steps.find_project_directory.outputs.project_directory }}
-      
-    - name: Subir artefactos al servidor remoto
-      run: |
-        # Crear directorio remoto (comando correcto para Windows)
-        try {
-          ssh ${{ inputs.remote_user }}@${{ inputs.server_ip }} "if not exist C:\artifacts\net-framework mkdir C:\artifacts\net-framework"
-        } catch {
-          echo "Error al crear el directorio de artefactos en el servidor remoto."
-          exit 1
-        }
-
-        # Obtener información del artefacto desde outputs del step anterior
-        $appName = "${{ steps.get_artifact.outputs.app_name }}"
-        $dotnetVersion = "${{ steps.get_artifact.outputs.dotnet_version }}"
-        
-        # Comprimir el directorio del proyecto
-        try {
-          $zipFile = "$appName.zip"
-          Compress-Archive -Path "${{ steps.find_project_directory.outputs.project_directory }}\*" -DestinationPath $zipFile
-        } catch {
-          echo "Error al comprimir el directorio del proyecto."
-          exit 1
-        }
-
-        # Subir el archivo comprimido al servidor remoto
-        try {
-          scp $zipFile ${{ inputs.remote_user }}@${{ inputs.server_ip }}:C:\artifacts\net-framework\
-        } catch {
-          echo "Error al subir el archivo comprimido al servidor remoto."
-          exit 1
-        }
       shell: powershell
       working-directory: ${{ steps.find_project_directory.outputs.project_directory }}
