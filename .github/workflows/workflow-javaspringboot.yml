@@ -6,6 +6,11 @@ jobs:
   
   build_test:
     runs-on: self-hosted
+    outputs:
+      app_name: ${{ steps.build_app.outputs.app_name }}
+      version: ${{ steps.build_app.outputs.version }}
+      extension: ${{ steps.build_app.outputs.extension }}
+      artifact_file_name: ${{ steps.upload_artifact.outputs.artifact_file_name }}
     steps:
       - name: Checkout app repository
         uses: actions/checkout@v4
@@ -19,6 +24,7 @@ jobs:
           path: workflow-repository
 
       - name: Build app
+        id: build_app
         uses: ./workflow-repository/.github/actions/javaspringboot/build
 
       - name: Test app
@@ -31,6 +37,7 @@ jobs:
           sonar_host_url: ${{ secrets.SONAR_HOST_URL }}
 
       - name: Upload artifact
+        id: upload_artifact
         uses: ./workflow-repository/.github/actions/javaspringboot/upload-artifact
 
   deploy:
@@ -38,5 +45,13 @@ jobs:
     needs: build_test
     steps:
       - name: Deploy to server
-        run: echo "Deploy to server"
+        uses: ./workflow-repository/.github/actions/javaspringboot/deploy
+        with:
+          # Conexión al servidor
+          server_ip: ${{ secrets.SERVER_IP }}
+          remote_user: ${{ secrets.REMOTE_USER }}
+          # Configuración de la aplicación
+          artifact_file_name: ${{ needs.build_test.outputs.artifact_file_name }}
+          tomcat_path: ${{ vars.TOMCAT_PATH || 'C:\Program Files\Apache Software Foundation\Tomcat 9.0\webapps' }}
+          tomcat_port: ${{ vars.TOMCAT_PORT || '8080' }}
 
