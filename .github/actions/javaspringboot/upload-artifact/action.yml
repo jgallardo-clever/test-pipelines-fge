@@ -1,0 +1,44 @@
+name: Upload Artifact for Java Spring Boot
+description: Upload build artifacts
+inputs:
+  artifact_name:
+    description: 'Name of the artifact to upload'
+    required: true
+  
+runs:
+  using: "composite"
+  steps:
+    - name: Buscar el archivo de proyecto pom.xml
+      shell: powershell
+      working-directory: ./app
+      run: |
+        echo "Buscando el archivo pom.xml..."
+        $pomPath = Get-ChildItem -Recurse -Filter pom.xml | Select-Object -First 1 | ForEach-Object { $_.FullName }
+        if (-not $pomPath) {
+          echo "No se encontró el archivo pom.xml"
+          exit 1
+        }
+
+        echo "Cargar archivo pom.xml encontrado en: $pomPath"
+        $projectDir = Split-Path $pomPath -Parent
+
+        echo "Obtener artifactId, version y packaging para nombrar el artefacto"
+        [xml]$pomXml = Get-Content $pomPath
+        $artifactId = $pomXml.project.artifactId
+        $version = $pomXml.project.version
+        $packaging = $pomXml.project.packaging
+        if (-not $packaging) {
+          $packaging = "jar"
+        }
+
+        $artifactFileName = "$artifactId-$version.$packaging"
+        echo "Artifact file name: $artifactFileName"
+        echo "artifact_file_name=$artifactFileName" >> $env:GITHUB_OUTPUT
+        echo "project_directory=$projectDir" >> $env:GITHUB_OUTPUT
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact_name }}
+        path: ${{ steps.find_project_directory.outputs.project_directory }}\target\${{ steps.upload_artifact.outputs.artifact_file_name }}
+        retention-days: 14 # Acá ver si debemos ajustar esto
