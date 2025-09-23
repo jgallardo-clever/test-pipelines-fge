@@ -31,7 +31,7 @@ jobs:
           sonar_host_url: ${{ secrets.SONAR_HOST_URL }}
 
       - name: Upload artifact
-        run: echo "Upload artifact"
+        uses: ./workflow-repository/.github/actions/javaspringboot/upload-artifact
 
   deploy:
     runs-on: self-hosted
@@ -39,3 +39,4 @@ jobs:
     steps:
       - name: Deploy to server
         run: echo "Deploy to server"
+

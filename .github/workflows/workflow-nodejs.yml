@@ -31,7 +31,7 @@ jobs:
           sonar_host_url: ${{ secrets.SONAR_HOST_URL }}
 
       - name: Upload artifact
-        run: echo "Upload artifact"   
+        uses: ./workflow-repository/.github/actions/nodejs/upload-artifact
 
   deploy:
     runs-on: self-hosted
