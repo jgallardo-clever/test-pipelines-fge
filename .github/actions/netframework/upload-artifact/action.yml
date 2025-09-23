@@ -1,0 +1,33 @@
+name: Upload Artifact for .NET Framework
+description: Upload build artifacts for .NET Framework applications
+
+runs:
+  using: "composite"
+  steps:
+    - name: Buscar el archivo de solución .sln
+      id: find_solution_file
+      shell: powershell
+      working-directory: ./app
+      run: |
+        echo "Buscando el archivo .sln..."
+        $slnPath = Get-ChildItem -Recurse -Filter *.sln | Select-Object -First 1 | ForEach-Object { $_.FullName }
+        if (-not $slnPath) {
+          echo "No se encontró el archivo .sln"
+          exit 1
+        }
+
+        echo "Cargar archivo .sln encontrado en: $slnPath"
+        $solutionDir = Split-Path $slnPath -Parent
+
+        echo "Obtener el nombre del archivo .sln para nombrar el artefacto"
+        $solutionFileName = Split-Path $slnPath -Leaf
+        echo "Solution file name: $solutionFileName"
+        echo "solution_file_name=$solutionFileName" >> $env:GITHUB_OUTPUT
+        echo "solution_directory=$solutionDir" >> $env:GITHUB_OUTPUT
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.find_solution_file.outputs.solution_file_name }}
+        path: ${{ steps.find_solution_file.outputs.solution_directory }}\bin\Release\${{ steps.find_solution_file.outputs.solution_file_name }}
+        retention-days: 14 # Acá ver si debemos ajustar esto
