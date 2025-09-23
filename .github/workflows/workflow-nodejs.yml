@@ -24,22 +24,15 @@ jobs:
       - name: Test app
         uses: ./workflow-repository/.github/actions/nodejs/test
 
-      - name: Upload artifact
-        run: echo "Upload artifact"
-
-  code_analysis:
-    runs-on: self-hosted
-    needs: build_test
-    steps:
-      - name: Download artifact
-        run: echo "Download artifact"
-
       - name: Code analysis
         run: echo "Code analysis"
 
+      - name: Upload artifact
+        run: echo "Upload artifact"   
+
   deploy:
     runs-on: self-hosted
-    needs: [build_test, code_analysis]
+    needs: build_test
     steps:
       - name: Download artifact
         run: echo "Download artifact"
