@@ -91,6 +91,7 @@ runs:
         # Retornar el nombre y la versión
         echo "app_name=$projectName" >> $env:GITHUB_OUTPUT
         echo "dotnet_version=$dotnetVersion" >> $env:GITHUB_OUTPUT
+        echo "project_path=${{ steps.find_project_directory.outputs.project_directory }}" >> $env:GITHUB_OUTPUT
 
       shell: powershell
       working-directory: ${{ steps.find_project_directory.outputs.project_directory }}

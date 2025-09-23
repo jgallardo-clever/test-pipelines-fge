@@ -6,6 +6,8 @@ jobs:
   
   build_test:
     runs-on: self-hosted
+    outputs:
+      artifact_name: ${{ steps.upload_artifact.outputs.project_name }}
     steps:
       - name: Checkout app repository
         uses: actions/checkout@v4
@@ -19,6 +21,7 @@ jobs:
           path: workflow-repository
 
       - name: Build app
+        id: build_app
         uses: ./workflow-repository/.github/actions/netframework/build
 
       - name: Test app
@@ -31,7 +34,10 @@ jobs:
           sonar_host_url: ${{ secrets.SONAR_HOST_URL }}
 
       - name: Upload artifact
+        id: upload_artifact
         uses: ./workflow-repository/.github/actions/netframework/upload-artifact
+        with:
+          app_path: ${{ steps.build_app.outputs.project_path }}
 
   deploy:
     runs-on: self-hosted

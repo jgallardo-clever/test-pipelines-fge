@@ -1,33 +1,31 @@
 name: Upload Artifact for .NET Framework
 description: Upload build artifacts for .NET Framework applications
+inputs:
+  app_path:
+    description: 'Path to the built application'
+    required: true
 
 runs:
   using: "composite"
   steps:
-    - name: Buscar el archivo de solución .sln
-      id: find_solution_file
+    - name: Comprimir proyecto .NET Framework
+      id: find_project_file
       shell: powershell
-      working-directory: ./app
+      working-directory: ${{ inputs.app_path }}
       run: |
-        echo "Buscando el archivo .sln..."
-        $slnPath = Get-ChildItem -Recurse -Filter *.sln | Select-Object -First 1 | ForEach-Object { $_.FullName }
-        if (-not $slnPath) {
-          echo "No se encontró el archivo .sln"
-          exit 1
-        }
-
-        echo "Cargar archivo .sln encontrado en: $slnPath"
-        $solutionDir = Split-Path $slnPath -Parent
-
-        echo "Obtener el nombre del archivo .sln para nombrar el artefacto"
-        $solutionFileName = Split-Path $slnPath -Leaf
-        echo "Solution file name: $solutionFileName"
-        echo "solution_file_name=$solutionFileName" >> $env:GITHUB_OUTPUT
-        echo "solution_directory=$solutionDir" >> $env:GITHUB_OUTPUT
+        echo "Comprimiendo el proyecto .NET Framework..."
+        $projectFile = Get-ChildItem -Path . -Recurse -Include *.csproj | Select-Object -First 1
+        $projectDirectory = Split-Path $projectFile.FullName -Parent
+        $projectName = [System.IO.Path]::GetFileNameWithoutExtension($projectFile.Name)
+        $zipFilePath = "$projectDirectory\$projectName.zip"
+        Compress-Archive -Path . -DestinationPath $zipFilePath -Force
+        echo "Archivo comprimido creado en: $zipFilePath"
+        echo "project_name=$projectName" >> $env:GITHUB_OUTPUT
+        echo "zip_file_path=$zipFilePath" >> $env:GITHUB_OUTPUT
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ steps.find_solution_file.outputs.solution_file_name }}
-        path: ${{ steps.find_solution_file.outputs.solution_directory }}\bin\Release\${{ steps.find_solution_file.outputs.solution_file_name }}
+        name: ${{ steps.find_project_file.outputs.project_name }}
+        path: ${{ steps.find_project_file.outputs.zip_file_path }}
         retention-days: 14 # Acá ver si debemos ajustar esto
