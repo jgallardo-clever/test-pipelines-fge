@@ -29,7 +29,7 @@ jobs:
         with:
           sonar_token: ${{ secrets.SONAR_TOKEN }}
           sonar_host_url: ${{ secrets.SONAR_HOST_URL }}
-          
+
       - name: Upload artifact
         run: echo "Upload artifact"
 
@@ -37,8 +37,5 @@ jobs:
     runs-on: self-hosted
     needs: build_test
     steps:
-      - name: Download artifact
-        run: echo "Download artifact"
-
       - name: Deploy to server
         run: echo "Deploy to server"
