@@ -25,11 +25,14 @@ jobs:
         uses: ./workflow-repository/.github/actions/javaspringboot/test
 
       - name: Code analysis
-        run: echo "Code analysis"
-
+        uses: ./workflow-repository/.github/actions/javaspringboot/code-analysis
+        with:
+          sonar_token: ${{ secrets.SONAR_TOKEN }}
+          sonar_host_url: ${{ secrets.SONAR_HOST_URL }}
+          
       - name: Upload artifact
         run: echo "Upload artifact"
-        
+
   deploy:
     runs-on: self-hosted
     needs: build_test

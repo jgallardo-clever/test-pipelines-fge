@@ -1,0 +1,43 @@
+name: Code Analysis
+description: Run static code analysis
+inputs:
+  sonar_token:
+    description: 'SonarQube token'
+    required: true
+  sonar_host_url:
+    description: 'SonarQube server URL'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Buscar el archivo de proyecto pom.xml
+      id: find_project_directory
+      shell: powershell
+      working-directory: ./app
+      run: |
+        echo "Buscando el archivo pom.xml..."
+        $pomPath = Get-ChildItem -Recurse -Filter pom.xml | Select-Object -First 1 | ForEach-Object { $_.FullName }
+        if (-not $pomPath) {
+          echo "No se encontró el archivo pom.xml"
+          exit 1
+        }
+        echo "Archivo pom.xml encontrado en: $pomPath"
+        $projectDir = Split-Path $pomPath -Parent
+        echo "Ruta al directorio de proyecto: $projectDir"
+        echo "project_directory=$projectDir" >> $env:GITHUB_OUTPUT
+
+    - name: Compilación Java Spring Boot
+      if: ${{ inputs.tecnologia == 'java-springboot-2.5.12' }}
+      working-directory: ${{ steps.find_project_directory.outputs.project_directory }}
+      shell: cmd
+      run: |
+        echo "Iniciando compilación del proyecto Java Spring Boot..."
+        mvn clean compile
+    
+    - name: Escaneo SonarQube para proyectos Java Spring Boot
+      if: ${{ inputs.tecnologia == 'java-springboot-2.5.12' }}
+      working-directory: ${{ steps.find_project_directory.outputs.project_directory }}
+      shell: cmd
+      run: |
+        echo "Iniciando escaneo de SonarQube para proyecto Java Spring Boot..."
+        sonar-scanner -Dsonar.projectKey=${{ github.event.repository.name }} -Dsonar.host.url=${{ inputs.SONAR_HOST_URL }} -Dsonar.login=${{ inputs.SONAR_TOKEN }} -Dsonar.java.binaries=target\classes
