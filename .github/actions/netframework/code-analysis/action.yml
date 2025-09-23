@@ -1,0 +1,18 @@
+name: Code Analysis
+description: Run static code analysis
+inputs:
+  sonar_token:
+    description: 'SonarQube token'
+    required: true
+  sonar_host_url:
+    description: 'SonarQube server URL'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Escaneo SonarQube para proyectos no compilados
+      working-directory: ./app
+      shell: cmd
+      run: |
+        echo "Iniciando escaneo de SonarQube..."
+        sonar-scanner -Dsonar.projectKey=${{ github.event.repository.name }} -Dsonar.sources=. -Dsonar.host.url=${{ inputs.sonar_host_url }} -Dsonar.login=${{ inputs.sonar_token }}

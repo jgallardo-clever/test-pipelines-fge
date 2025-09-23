@@ -40,4 +40,4 @@ runs:
       shell: cmd
       run: |
         echo "Iniciando escaneo de SonarQube para proyecto Java Spring Boot..."
-        sonar-scanner -Dsonar.projectKey=${{ github.event.repository.name }} -Dsonar.host.url=${{ inputs.SONAR_HOST_URL }} -Dsonar.login=${{ inputs.SONAR_TOKEN }} -Dsonar.java.binaries=target\classes
+        sonar-scanner -Dsonar.projectKey=${{ github.event.repository.name }} -Dsonar.host.url=${{ inputs.sonar_host_url }} -Dsonar.login=${{ inputs.sonar_token }} -Dsonar.java.binaries=target\classes
