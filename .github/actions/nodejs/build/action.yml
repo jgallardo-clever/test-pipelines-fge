@@ -1,15 +1,5 @@
 name: Action para compilar aplicaciones Node.js para PM2
 description: Esta acción se encarga de compilar aplicaciones Node.js y prepararlas para su despliegue en PM2 con IIS.
-inputs:
-  server_ip: 
-    description: 'Dirección IP del servidor donde se desplegará la aplicación'
-    required: true
-  remote_user:
-    description: 'Usuario para conectarse al servidor remoto'
-    required: true
-  app_port:
-    description: 'Puerto de la aplicación'
-    required: true
 outputs:
   app_name:
     description: 'Nombre de la aplicación'
@@ -112,25 +102,3 @@ runs:
         }        
       shell: powershell
       working-directory: ${{ steps.find_project_directory.outputs.project_directory }}
-
-    - name: Optimizar artefacto para despliegue
-      run: |
-        echo "Limpiando artefacto..."
-        rmdir /s /q node_modules
-      shell: cmd
-      working-directory: ${{ steps.find_project_directory.outputs.project_directory }}
-
-    - name: Subir artefacto al servidor remoto
-      run: |
-        echo "Crear directorio de artefactos en el servidor remoto si no existe"
-        try {
-          ssh ${{ inputs.remote_user }}@${{ inputs.server_ip }} "mkdir C:\artifacts\nodejs"
-        } catch {
-          Write-Error "No se pudo crear el directorio de artefactos en el servidor remoto"
-          exit 1
-        }
-        echo "Subiendo el artefacto al servidor remoto..."
-        scp -r . ${{ inputs.remote_user }}@${{ inputs.server_ip }}:C:\artifacts\nodejs\${{ steps.get_project_name.outputs.app_name }}\
-      shell: powershell
-      working-directory: ${{ steps.find_project_directory.outputs.project_directory }}
-

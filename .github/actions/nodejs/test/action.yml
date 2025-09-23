@@ -1,61 +1,64 @@
-name: Action para ejecutar pruebas de .NET Framework
-description: 'Esta acción ejecuta pruebas de aplicaciones .NET Framework'
+name: Action para ejecutar pruebas de Node.js
+description: Acción para ejecutar pruebas de una aplicación Node.js
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
-    - name: Restaurar dependencias con Nuget
+    - name: Buscamos el directorio de la aplicación
+      id: find_project_directory
       shell: powershell
       working-directory: ./app
       run: |
-        echo "Buscamos el archivo .sln..."
-        $slnFile = Get-ChildItem -Path . -Recurse -Include *.sln | Select-Object -First 1
-        if ($slnFile) {
-          echo "Archivo .sln encontrado: $slnFile"
-        } else {
-          echo "No se encontró ningún archivo .sln."
-        }
-        echo "Restaurando dependencias con nuget en los directorios que contienen el archivo .csproj..."
-        $csprojFiles = Get-ChildItem -Path . -Recurse -Include *.csproj
-        foreach ($csprojFile in $csprojFiles) {
-          $csprojDirectory = Split-Path $csprojFile.FullName -Parent
-          nuget restore $csprojFile -PackagesDirectory "$csprojDirectory\packages"
+        echo "Buscando el directorio del proyecto..."
+
+        # Buscamos el archivo package-lock.json para determinar el directorio del proyecto
+        $projectDir = Get-ChildItem -Recurse -Filter package-lock.json | Select-Object -First 1 | ForEach-Object { $_.DirectoryName }
+        if (-not $projectDir) {
+          Write-Error "No se encontró el archivo package-lock.json"
+          exit 1
         }
 
-      ###################################################################################################
-      # En este caso estamos buscando los archivos de proyecto de tests .NET Framework, el cual es
-      # utilizado con MSTest, por lo que se espera que los archivos de prueba y proyecto tengan un
-      # sufijo .Tests
-      ###################################################################################################
-    - name: Buscar los archivos de tests del proyecto .NET y retornar ruta del directorio
-      id: find_test_project_directory
+        # Exportamos la variable de entorno con el directorio de la aplicación
+        echo "project_directory=$projectDir" >> $env:GITHUB_OUTPUT
+        
+        echo "Directorio de la aplicación: $projectDir"
+
+    # Step para validar si existe el comando/script para ejecutar pruebas en el package.json
+    - name: Validar existencia de script de pruebas
+      id: test_script
       shell: powershell
-      working-directory: ./app
+      working-directory: ${{ steps.find_project_directory.outputs.project_directory }}
       run: |
-        # Buscar archivos de proyecto de tests .NET
-        $testProjectFiles = Get-ChildItem -Path . -Recurse -Include *.csproj, *.vbproj, *.fsproj | Where-Object { $_.FullName -match 'Tests' }
-        if ($testProjectFiles.Count -eq 0) {
-          echo "No se encontraron archivos de proyecto de tests .NET."
+        $packageJson = Get-Content package.json | ConvertFrom-Json
+        if (-not $packageJson.scripts.test) {
+          echo "No se encontró el script de pruebas en package.json"
           echo "has_tests=false" >> $env:GITHUB_OUTPUT
           exit 0
         }
-        
-        # Tomar el primer archivo de proyecto de tests encontrado
-        $testProjectFile = $testProjectFiles[0].FullName
-
-        # Obtener el directorio del archivo de proyecto de tests
-        $testProjectDirectory = Split-Path $testProjectFile -Parent
-
-        # Exportar la ruta completa del directorio del proyecto de tests y el archivo de proyecto de tests
+        echo "Script de pruebas encontrado: $($packageJson.scripts.test)"
         echo "has_tests=true" >> $env:GITHUB_OUTPUT
-        echo "test_project_directory=$testProjectDirectory" >> $env:GITHUB_OUTPUT
-        echo "test_project_file=$testProjectFile" >> $env:GITHUB_OUTPUT
+        if ($packageJson.scripts.tests -eq "jest") {
+          echo "Usando Jest para pruebas"
+          echo 'test_command="npm test"' >> $env:GITHUB_OUTPUT
+        } elseif ($packageJson.scripts.test -eq "ng test") {
+          echo "Usando Angular para pruebas"
+          echo 'test_command="ng test -- --watch=false --browsers=ChromeHeadless"' >> $env:GITHUB_OUTPUT
+        } else {
+          echo "Usando script por defecto"
+          echo 'test_command="npm test"' >> $env:GITHUB_OUTPUT
+        }
 
-    - name: Ejecutar pruebas .NET
-      if: ${{ steps.find_test_project_directory.outputs.has_tests == 'true' }}
+    - name: Ejecutamos las pruebas
       shell: powershell
-      working-directory: ${{ steps.find_test_project_directory.outputs.test_project_directory }}
+      if: ${{ steps.test_script.outputs.has_tests == 'true' }}
+      working-directory: ${{ steps.find_project_directory.outputs.project_directory }}
       run: |
-        echo "Buildear proyecto de tests..."
-        msbuild /p:Configuration=Release
-        echo "Ejecutar pruebas..."
-        vstest.console.exe .\bin\Release\*.Tests.dll
+        echo "Ejecutando las pruebas..."
+        $testCommand = ${{ steps.test_script.outputs.test_command }}
+        Invoke-Expression $testCommand
+        if ($LASTEXITCODE -ne 0) {
+          Write-Error "Las pruebas fallaron"
+          exit 1
+        }
+        else {
+          Write-Host "Las pruebas se ejecutaron correctamente"
+        }
