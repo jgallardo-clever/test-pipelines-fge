@@ -1,5 +1,5 @@
-name: Action para desplegar aplicaciones Java Spring Boot 2.5.12
-description: 'Esta acción despliega aplicaciones Java Spring Boot 2.5.12'
+name: Action para desplegar aplicaciones Node.js en IIS
+description: Esta acción se encarga de desplegar aplicaciones Node.js en un servidor IIS.
 inputs:
   ########################################################################
   # Conexión al servidor
@@ -11,97 +11,64 @@ inputs:
     description: 'Usuario para conectarse al servidor remoto'
     required: true
   ########################################################################
-  # Tipo de despliegue
-  ########################################################################
-  tipo_despliegue:
-    description: 'Tipo de despliegue a realizar'
-    required: true
-  ########################################################################
-  # Configuración del sitio/webapp en IIS
-  ########################################################################
-  project_path:
-    description: 'Ruta del proyecto en el servidor remoto'
-    required: true
-  site_name:
-    description: 'Nombre del sitio en IIS'
-    required: true
-  webapp_name:
-    description: 'Nombre de la web application en IIS (solo para tipo_deploy = webapp)'
-    required: false
-    default: ''
-  ip_address:
-    description: 'Dirección IP del sitio (dejar vacío para todas las IPs)'
-    required: false
-    default: '*'
-  host_header:
-    description: 'Header del host para el sitio'
-    required: false
-    default: 'localhost'
-  port_site:
-    description: 'Puerto del sitio'
-    required: false
-    default: '80'
-  app_pool_name:
-    description: 'Nombre del Application Pool'
-    required: true
-  ########################################################################
   # Configuración de la aplicación
   ########################################################################
-  app_name:
-    description: 'Nombre de la aplicación a desplegar'
+  project_path:
+    description: 'Ruta de la aplicación en el servidor'
     required: true
+  # app_name:
+  #   description: 'Nombre de la aplicación a desplegar'
+  #   required: true
+  start_command:
+    description: 'Comando para iniciar la aplicación con PM2'
+    required: true
+  app_port:
+    description: 'Puerto de la aplicación'
+    required: true
+
 runs:
   using: 'composite'
   steps:
-    - name: Desplegar en aplicación .NET Framework
+    - name: Descargar artefacto desde GitHub Artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: '${{ inputs.artifact_file_name }}'
+        path: 'C:\artifacts\nodejs'
+
+    - name: Desplegar aplicación en IIS
       run: |
-        echo "Crear directorio para la aplicación en el servidor remoto"
-        ssh ${{ inputs.remote_user }}@${{ inputs.server_ip }} mkdir \"${{ inputs.project_path }}\${{ inputs.app_name }}\"
-
-        echo "Desplegando aplicación .NET Framework en el servidor remoto"
-        ssh ${{ inputs.remote_user }}@${{ inputs.server_ip }} move \"C:\artifacts\net-framework\${{ inputs.app_name }}.zip\" \"${{ inputs.project_path }}\${{ inputs.app_name }}\"
-
-        echo "Descompresion de artefacto en el servidor remoto"
-        ssh ${{ inputs.remote_user }}@${{ inputs.server_ip }} powershell -Command "Expand-Archive -Path \"${{ inputs.project_path }}\${{ inputs.app_name }}\${{ inputs.app_name }}.zip\" -DestinationPath \"${{ inputs.project_path }}\${{ inputs.app_name }}\" -Force"
-
-        echo "Eliminar archivo ZIP del servidor remoto"
-        ssh ${{ inputs.remote_user }}@${{ inputs.server_ip }} del \"${{ inputs.project_path }}\${{ inputs.app_name }}\${{ inputs.app_name }}.zip\"
+        echo "Obtenemos nombre sin extensión del artefacto..."
+        $appName = [System.IO.Path]::GetFileNameWithoutExtension("${{ inputs.artifact_file_name }}")
+        echo "Nombre de la aplicación: $appName"
+        echo "Instalar dependencias npm..."
+        ssh ${{ inputs.remote_user }}@${{ inputs.server_ip }} "cd C:\artifacts\nodejs\$appName && npm install"
+        echo "Eliminar proceso de la aplicación en PM2..."
+        ssh ${{ inputs.remote_user }}@${{ inputs.server_ip }} pm2 stop $appName
+        ssh ${{ inputs.remote_user }}@${{ inputs.server_ip }} pm2 delete $appName
+        echo "Crear directorio del proyecto si no existe..."
+        ssh ${{ inputs.remote_user }}@${{ inputs.server_ip }} if not exist \"${{ inputs.project_path }}\${{ inputs.app_name }}\" mkdir \"${{ inputs.project_path }}\${{ inputs.app_name }}\"
+        echo "Mover archivos del directorio temporal a la ruta del proyecto..."
+        ssh ${{ inputs.remote_user }}@${{ inputs.server_ip }} xcopy /y /s /e \"C:\artifacts\nodejs\${{ inputs.app_name }}\" \"${{ inputs.project_path }}\${{ inputs.app_name }}\"
       shell: cmd
 
-    - name: Crear App Pool de IIS
-      uses: ./workflow-repository/.github/actions/utils/application-pool/create-app-pool
-      with:
-        app_pool_name: '${{ inputs.app_name }}-app-pool'
-        managed_runtime_version: 'v4.0'
-        managed_pipeline_mode: 'Integrated'
-        servidor_remoto: '${{ inputs.server_ip }}'
-        usuario: '${{ inputs.remote_user }}'
-        
-    - name: Crear Sitio en IIS
-      if: ${{ inputs.tipo_despliegue == 'site' }}
-      uses: ./workflow-repository/.github/actions/utils/iis-site/create-iis-site
-      with:
-        # Conexión al servidor
-        servidor_remoto: '${{ inputs.server_ip }}'
-        usuario: '${{ inputs.remote_user }}'
-        # Configuración del sitio
-        site_name: '${{ inputs.site_name }}'
-        app_pool_name: '${{ inputs.app_name }}-app-pool'
-        physical_path: '${{ inputs.project_path }}\${{ inputs.app_name }}'
-        host_header: ${{ inputs.host_header }}
-        port: ${{ inputs.port_site }}
-        ip_address: '${{ inputs.ip_address }}'
-        
-    - name: Crear Web Application en IIS
-      if: ${{ inputs.tipo_despliegue == 'webapp' }}
-      uses: ./workflow-repository/.github/actions/utils/iis-site/create-web-app
-      with:
-        # Conexión al servidor
-        servidor_remoto: '${{ inputs.server_ip }}'
-        usuario: '${{ inputs.remote_user }}'
-        # Configuración del sitio
-        site_name: '${{ inputs.site_name }}'
-        app_name: '${{ inputs.webapp_name }}'
-        app_pool_name: '${{ inputs.app_name }}-app-pool'
-        physical_path: '${{ inputs.project_path }}\${{ inputs.app_name }}'
-        
+    - name: Conceder permisos al directorio del proyecto
+      run: |
+        echo "Concediendo permisos al directorio del proyecto en el servidor remoto"
+        ssh ${{ inputs.remote_user }}@${{ inputs.server_ip }} powershell -Command "icacls '${{ inputs.project_path }}\$appName' /grant 'IIS_IUSRS:(OI)(CI)M'"
+      shell: powershell
+
+    - name: Iniciar aplicación con PM2
+      run: |
+        echo "Parametros:"
+        echo "  - Nombre de la aplicación: $appName"
+        echo "  - Ruta del proyecto: ${{ inputs.project_path }}\$appName"
+        echo "  - Comando de inicio: ${{ inputs.start_command }}"
+        echo "  - Ruta completa: ${{ inputs.project_path }}\$appName\${{ inputs.start_command }}"
+        echo "Iniciando aplicación..."
+        # Si la variable start_command es igual a "-", entonces iniciamos con pm2 serve
+        if ("${{ inputs.start_command }}" -eq "-") {
+          ssh ${{ inputs.remote_user }}@${{ inputs.server_ip }} "pm2 serve ${{ inputs.project_path }}\$appName\build ${{ inputs.app_port }} --name $appName"
+        } else {
+          ssh ${{ inputs.remote_user }}@${{ inputs.server_ip }} "set PORT=${{ inputs.app_port }} && set NODE_PORT=${{ inputs.app_port }} && pm2 start ${{ inputs.project_path }}\$appName\${{ inputs.start_command }} --name $appName"
+        }
+      shell: powershell

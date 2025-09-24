@@ -24,10 +24,10 @@ runs:
   using: 'composite'
   steps:
     - name: Descargar artefacto
-      uses: ./workflow-repository/.github/actions/netframework/download-artifact
+      uses: actions/download-artifact@v4
       with:
-        artifact_name: '${{ inputs.artifact_file_name }}'
-        download_path: 'C:\artifacts\net-framework'
+        name: '${{ inputs.artifact_file_name }}'
+        path: 'C:\artifacts\net-framework'
       
     - name: Desplegar en aplicación .NET Framework
       run: |

@@ -5,6 +5,8 @@ on:
 jobs:
   
   build_test:
+    outputs:
+      artifact_name: ${{ steps.upload_artifact.outputs.artifact_file_name }}
     runs-on: self-hosted
     steps:
       - name: Checkout app repository
@@ -31,6 +33,7 @@ jobs:
           sonar_host_url: ${{ secrets.SONAR_HOST_URL }}
 
       - name: Upload artifact
+        id: upload_artifact
         uses: ./workflow-repository/.github/actions/nodejs/upload-artifact
 
   deploy:
@@ -38,4 +41,9 @@ jobs:
     needs: build_test
     steps:
       - name: Deploy to server
-        run: echo "Deploy to server"
+        uses: ./workflow-repository/.github/actions/nodejs/deploy
+        with:
+          server_ip: ${{ secrets.server_ip }}
+          remote_user: ${{ secrets.remote_user }}
+          artifact_file_name: ${{ needs.build_test.outputs.artifact_name }}
+          project_path: ${{ secrets.project_path }}
