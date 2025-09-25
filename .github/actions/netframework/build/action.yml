@@ -46,6 +46,7 @@ runs:
           echo "Archivo .sln encontrado: $slnFile"
         } else {
           echo "No se encontró ningún archivo .sln."
+          exit 1
         }
         echo "Restaurando dependencias con nuget..."
         nuget restore $slnFile -PackagesDirectory ${{ steps.find_project_directory.outputs.project_directory }}\packages
