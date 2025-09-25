@@ -7,6 +7,7 @@ jobs:
   build_test:
     outputs:
       artifact_name: ${{ steps.upload_artifact.outputs.artifact_file_name }}
+      start_command: ${{ steps.build_app.outputs.start_command }}
     runs-on: self-hosted
     steps:
       - name: Checkout app repository
@@ -21,6 +22,7 @@ jobs:
           path: workflow-repository
 
       - name: Build app
+        id: build_app
         uses: ./workflow-repository/.github/actions/nodejs/build
 
       - name: Test app
@@ -46,4 +48,6 @@ jobs:
           server_ip: ${{ secrets.server_ip }}
           remote_user: ${{ secrets.remote_user }}
           artifact_file_name: ${{ needs.build_test.outputs.artifact_name }}
+          start_command: ${{ needs.build_test.outputs.start_command }}
           project_path: ${{ secrets.project_path }}
+          app_port: ${{ secrets.app_port }}

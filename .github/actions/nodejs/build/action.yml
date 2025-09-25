@@ -57,16 +57,7 @@ runs:
       shell: powershell
       working-directory: ${{ steps.find_project_directory.outputs.project_directory }}
 
-    - name: Obtener el nombre del proyecto usando el nombre del directorio
-      id: get_project_name
-      run: |
-        # Recuperamos el nombre del proyecto considerando el nombre del directorio
-        $rutaActual = Split-Path -Path (Get-Location) -Leaf
-        echo "app_name=$rutaActual" >> $env:GITHUB_OUTPUT
-      shell: powershell
-      working-directory: ${{ steps.find_project_directory.outputs.project_directory }}
-
-    - name: Obtener el comando de inicio
+    - name: Obtener el comando de inicio (para cuando se despliegue con PM2)
       id: get_start_command
       run: |
         # Recuperamos el package.json en una variable
