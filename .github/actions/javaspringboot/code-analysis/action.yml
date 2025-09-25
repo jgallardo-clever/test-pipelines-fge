@@ -25,14 +25,6 @@ runs:
         $projectDir = Split-Path $pomPath -Parent
         echo "Ruta al directorio de proyecto: $projectDir"
         echo "project_directory=$projectDir" >> $env:GITHUB_OUTPUT
-
-    - name: Compilación Java Spring Boot
-      if: ${{ inputs.tecnologia == 'java-springboot-2.5.12' }}
-      working-directory: ${{ steps.find_project_directory.outputs.project_directory }}
-      shell: cmd
-      run: |
-        echo "Iniciando compilación del proyecto Java Spring Boot..."
-        mvn clean compile
     
     - name: Escaneo SonarQube para proyectos Java Spring Boot
       if: ${{ inputs.tecnologia == 'java-springboot-2.5.12' }}
